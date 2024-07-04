@@ -176,6 +176,22 @@ def pipeline(params):
 
     if type(functions) is dict or type(functions) is str:
         functions = [functions]
+        
+    # # ADDED BY ART
+    # import copy
+    # tools_ = []
+    # for tool in functions:
+    #     for k, param in tool['parameters']['properties'].items():
+    #         if param['type'] == 'tuple':
+    #             tool['parameters']['properties'][k]['type'] = 'array'
+    #         if param['type'] == 'any':
+    #             tool['parameters']['properties'][k]['type'] = 'string'
+    #         if param['type'] == 'dict':
+    #             tool['parameters']['properties'][k]['type'] = 'string'
+    #     tools_.append(tool)
+    # functions = tools_
+    # # ADDED BY ART
+    
     result, metadata = handler.inference(user_question, functions, test_category)
     result_to_write = {
         "idx": index,

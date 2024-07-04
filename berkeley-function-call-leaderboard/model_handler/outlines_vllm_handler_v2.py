@@ -10,9 +10,9 @@ import torch
 from model_handler.constant import style_to_system_prompt, style_to_user_prompt
 from model_handler.handler import BaseHandler
 from model_handler.model_style import ModelStyle
-from model_handler.utils import _cast_to_openai_type, ast_parse
+from model_handler.utils import ast_parse #, _cast_to_openai_type
 from outlines.fsm.json_schema import build_regex_from_schema, get_schema_from_signature
-from tool_use.prompt import get_system_prompt, get_tool_selector_system_prompt
+from tool_use.prompt import get_system_prompt, get_system_prompt_art #, get_tool_selector_system_prompt
 from tool_use.tool import Tool
 from tool_use.utils.regex_util import tools_to_schema
 
@@ -76,7 +76,9 @@ class OutlinesVllmHandler(BaseHandler):
     def get_prompt(self, tools, user_query):
 
         system_prompt = ""
-        if self.system_prompt_style is not None:
+        if self.system_prompt_style == 'art':
+            system_prompt = get_system_prompt_art(tools)
+        elif self.system_prompt_style is not None:
             tools_schema = tools_to_schema(tools)
             system_prompt = style_to_system_prompt[self.system_prompt_style].format(tools_schema=tools_schema)
 
@@ -95,6 +97,24 @@ class OutlinesVllmHandler(BaseHandler):
             self.n_tool_calls = len(self.solution)
         else:
             self.n_tool_calls = self._n_tool_calls
+            
+        # This seems to help:
+        # (before sys: 81, 79.5)
+        # (after sys: 79)
+        if self.gen_mode == "neo_conditional":
+            import copy
+            tools = copy.deepcopy(tools)
+            if not isinstance(tools, list):
+                tools = [tools]
+            for tool in tools:
+                for param in tool['parameters']['properties'].values():
+                    if param['type'] == 'tuple':
+                        param['type'] = 'array'
+                    if param['type'] == 'any':
+                        param['type'] = 'string'
+                    if param['type'] == 'dict':
+                        param['type'] = 'string'
+
 
         # Get messages
         try:
@@ -104,13 +124,13 @@ class OutlinesVllmHandler(BaseHandler):
             print(f"ERROR:\n{e}")
             return result, {"input_tokens": 0, "output_tokens": 0, "latency": 0, "n_tool_calls": self.n_tool_calls, "tool_calls": [], "messages": ""}
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
-
+        
         # Generate tool calls
         tool_calls, output_messages = [], None
         try:
             start = time.time()
             output_messages, tool_calls = self.tool(messages, gen_mode=self.gen_mode, tools=tools, n_tool_calls=self.n_tool_calls)
-            if self.user_prompt_style == "json" or self.system_prompt_style == "json":
+            if self.user_prompt_style == "json" or self.system_prompt_style == "json" or self.gen_mode == 'neo_conditional':
                 result = bfcl_format(tool_calls)
             else: # python
                 result = output_messages[-1]["content"]
