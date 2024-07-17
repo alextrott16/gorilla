@@ -130,7 +130,7 @@ class OutlinesVllmHandler(BaseHandler):
         try:
             start = time.time()
             output_messages, tool_calls = self.tool(messages, gen_mode=self.gen_mode, tools=tools, n_tool_calls=self.n_tool_calls)
-            if self.user_prompt_style == "json" or self.system_prompt_style == "json" or self.gen_mode == 'neo_conditional':
+            if self.user_prompt_style == "json" or self.system_prompt_style == "json" or self.gen_mode == 'neo_conditional' or self.system_prompt_style == 'art':
                 result = bfcl_format(tool_calls)
             else: # python
                 result = output_messages[-1]["content"]
